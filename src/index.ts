@@ -35,12 +35,23 @@ posts.post("", async (req:Request,res:Response)=>{
     res.sendJson(data);
 
 });
-
-
-
 const app = new Application();
 
+
+app.addRoute("get","/users/:id/:role",async (req:Request,res:Response,params)=>{
+    res.sendJson({"params":params});
+});
+
+posts.use(async (req:Request,res:Response,next)=>{
+    console.log(`${req.method} ${req.url} [${new Date()}] `);
+    await next();
+})
+
+
+
+
 app.useRouter(posts);
+
 
 
 app.listen(3000, () => {
