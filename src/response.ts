@@ -1,9 +1,29 @@
-import { IncomingMessage, ServerResponse } from 'http';
+import { ServerResponse } from 'http';
 
-export class Response extends ServerResponse {
+export class Response {
+    private response: ServerResponse;
 
-    json(data: any): void {
+    constructor(response: ServerResponse) {
+        this.response = response;
+    }
+
+    setHeader(name: string, value: string): this {
+        this.response.setHeader(name, value);
+        return this;
+    }
+
+    status(code: number): this {
+        this.response.statusCode = code;
+        return this;
+    }
+
+    send(data: string): void {
+        this.response.end(data);
+    }
+
+    sendJson(data: object): void {
         this.setHeader('Content-Type', 'application/json');
-        this.end(JSON.stringify(data));
+        this.response.end(JSON.stringify(data));
     }
 }
+

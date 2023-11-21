@@ -1,25 +1,20 @@
 import { Server, IncomingMessage, ServerResponse, createServer } from 'http';
 import { Response } from './response';
 import { Request } from './request';
+import { Router ,Route,RouteHandler,Middleware} from './router';
 
-type RouteHandler = (req: Request, res: Response, params?: { [key: string]: string }) => void;
-type Middleware = (req: Request, res: Response, next: () => void) => void;
 
-interface Route {
-    method: string;
-    path: string;
-    handler: RouteHandler;
-}
 
 export class Application {
+
+    private static readonly VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']);
     private server?: Server;
     routes: Route[] = [];
     middlewares: Middleware[] = [];
 
     constructor() {
         this.server = createServer((req:IncomingMessage , res:ServerResponse) => {
-
-            this.handleRequest(req as Request, res as Response);
+            this.handleRequest(new Request(req) , new Response(res) );
         });
     }
 
@@ -27,39 +22,52 @@ export class Application {
         this.middlewares.push(middleware);
     }
 
-    addRoute(method: string, path: string, handler: RouteHandler): void {
-        this.routes.push({ method, path, handler });
+    useRouter(router: Router): void {
+        const routerRoutes = router.getRoutes();
+        const routerMiddlewares = router.getMiddlewares();
+        this.routes.push(...routerRoutes);
+        this.middlewares.push(...routerMiddlewares);
     }
 
-    private handleRequest(req: Request, res:Response): void {
+    addRoute(method: string, path: string, handler: RouteHandler): void {
+        const normalizedMethod = method.toUpperCase();
+
+        if (!Application.VALID_METHODS.has(normalizedMethod)) {
+            throw new Error(`Invalid HTTP method: ${method}`);
+        }
+
+        this.routes.push({ method: normalizedMethod, path, handler });
+    }
+
+    private async handleRequest(req: Request, res: Response): Promise<void> {
         let middlewareIndex = 0;
 
-        const next = () => {
+        const next = async () => {
             if (middlewareIndex < this.middlewares.length) {
                 const middleware = this.middlewares[middlewareIndex++];
-                middleware(req, res, next);
+                await middleware(req, res, next);
             } else {
-                this.handleRoute(req, res);
+                await this.handleRoute(req, res);
             }
         };
 
-        next();
+        await next();
     }
 
-    private handleRoute(req: Request, res:Response): void {
+
+  private async handleRoute(req: Request, res: Response): Promise<void> {
         const requestedPath = req.url || '';
         const requestedMethod = req.method || '';
-    
+
         const routeMatch = this.matchRoute(requestedPath, requestedMethod);
         if (routeMatch) {
             const { handler, params } = routeMatch;
-            handler(req, res, params);
+            await handler(req, res, params);
         } else {
-            res.statusCode = 404;
-            res.end('Not Found');
+            res.status(404);
+            res.send('Not Found');
         }
     }
-    
 
 
     private matchRoute(reqUrl: string, reqMethod: string): { handler: RouteHandler, params: { [key: string]: string } } | undefined {

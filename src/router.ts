@@ -1,51 +1,64 @@
-import { IncomingMessage, ServerResponse } from 'http';
+import { Response } from "./response";
+import { Request } from "./request";
 
-type RouteHandler = (req: IncomingMessage, res: ServerResponse, params: { [key: string]: string }) => void;
+export type RouteHandler = (req: Request, res: Response, params?: { [key: string]: string }) => Promise<void>;
+export type Middleware = (req: Request, res: Response, next: () => Promise<void>) => Promise<void>;
 
+
+export interface Route {
+    method: string;
+    path: string;
+    handler: RouteHandler;
+}
 
 export class Router {
-    private routes: Map<string, RouteHandler>;
 
-    constructor() {
-        this.routes = new Map();
+    private static readonly VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD']);
+    private prefix: string;
+    private routes: Route[] = [];
+    private middlewares: Middleware[] = [];
+
+    constructor(prefix: string = '') {
+        this.prefix = prefix;
     }
 
-    public addRoute(path: string, handler: RouteHandler): void {
-        this.routes.set(path, handler);
+    use(middleware: Middleware): void {
+        this.middlewares.push(middleware);
     }
 
-    public route(req: IncomingMessage, res: ServerResponse): void {
-        const routeMatch = this.matchRoute(req.url || '');
-        if (routeMatch) {
-            const { handler, params } = routeMatch;
-            handler(req, res, params);
-        } else {
-            res.statusCode = 404;
-            res.end('Not Found');
+    getRoutes(): Route[] {
+        return this.routes;
+    }
+
+    getMiddlewares(): Middleware[] {
+        return this.middlewares;
+    }
+
+    private addRoute(method: string, path: string, handler: RouteHandler): void {
+        const normalizedMethod = method.toUpperCase();
+
+        if (!Router.VALID_METHODS.has(normalizedMethod)) {
+            throw new Error(`Invalid HTTP method: ${method}`);
         }
-    }
-    
 
-    public matchRoute(reqUrl: string): { handler: RouteHandler, params: { [key: string]: string } } | undefined {
-        for (let [path, handler] of this.routes.entries()) {
-            const pathParts = path.split('/');
-            const urlParts = reqUrl.split('/');
-            const params: { [key: string]: string } = {};
-    
-            if (pathParts.length === urlParts.length) {
-                const isMatch = pathParts.every((part, index) => {
-                    if (part.startsWith(':')) {
-                        params[part.substring(1)] = urlParts[index];
-                        return true;
-                    }
-                    return part === urlParts[index];
-                });
-    
-                if (isMatch) {
-                    return { handler, params };
-                }
-            }
-        }
+        const fullPath = this.prefix + path;
+        this.routes.push({ method: normalizedMethod, path: fullPath, handler });
     }
-    
+
+    get(path: string, handler: RouteHandler): void {
+        this.addRoute('GET', path, handler);
+    }
+
+    post(path: string, handler: RouteHandler): void {
+        this.addRoute('POST', path, handler);
+    }
+
+    put(path: string, handler: RouteHandler): void {
+        this.addRoute('PUT', path, handler);
+    }
+
+    delete(path: string, handler: RouteHandler): void {
+        this.addRoute('DELETE', path, handler);
+    }
+
 }

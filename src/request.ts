@@ -1,28 +1,56 @@
 import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import { ParsedUrlQuery } from 'querystring';
-import { parse as parseCookie  } from 'cookie';
+import { parse as parseQuery } from 'querystring';
 
-export class Request extends IncomingMessage {
+export class Request {
+    private request: IncomingMessage;
+    private bodyParsed: boolean = false;
+    private _body: any;
 
-    private _cookies?: Record<string,string>;
-    private _query?: ParsedUrlQuery;
-    public params: { [key: string]: string } = {};
-
-    get cookies(): Record<string,string> {
-        if (!this._cookies) {
-            this._cookies = parseCookie(this.headers.cookie || '');
-        }
-        return this._cookies;
+    constructor(request: IncomingMessage) {
+        this.request = request;
     }
 
-    get query(): ParsedUrlQuery {
-        if (!this._query) {
-            const urlObj = parseUrl(this.url || '', true);
-            this._query = urlObj.query;
-        }
-        return this._query;
+    get headers(): NodeJS.Dict<string | string[]> {
+        return this.request.headers;
     }
 
-    
+    get url(): string | undefined {
+        return this.request.url;
+    }
+
+    get method(): string | undefined {
+        return this.request.method;
+    }
+
+    get query(): any {
+        if (this.url) {
+            return parseQuery(parseUrl(this.url, true).query as any);
+        }
+        return {};
+    }
+
+    async getBody(): Promise<any> {
+        if (this.bodyParsed) {
+            return this._body;
+        }
+
+        return new Promise((resolve, reject) => {
+            let data = '';
+            this.request.on('data', chunk => {
+                data += chunk;
+            });
+            this.request.on('end', () => {
+                try {
+                    this._body = JSON.parse(data);
+                    this.bodyParsed = true;
+                    resolve(this._body);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    }
 }
+
+
