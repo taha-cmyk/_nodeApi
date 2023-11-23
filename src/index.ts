@@ -16,9 +16,9 @@ message_broadcater.setHosts([
 
 payments.post("/checkout", async (req:Request,res:Response)=>{
     // some logic 
-
+    let payload = {"event":"payment-done"}
     // all succuss
-    await message_broadcater.sendAll().then().catch();
+    await message_broadcater.sendAll(payload).then().catch();
     res.sendJson({"message":"payment done"});
 
 });
