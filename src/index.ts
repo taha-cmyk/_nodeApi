@@ -24,13 +24,12 @@ payments.post("/checkout", async (req:Request,res:Response)=>{
 });
 
 
-payments.use(async (req:Request,res:Response,next)=>{
+const app = new Application();
+
+app.use(async (req:Request,res:Response,next)=>{
     console.log(`${req.method} ${req.url} [${new Date()}] `);
     await next();
 })
-
-
-const app = new Application();
 
 app.useRouter(payments);
 

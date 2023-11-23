@@ -33,7 +33,7 @@ export class MessageBroadcaster{
     }
 
     public async sendAll(){
-       const promises = this.hosts.map(host => this.sendToHost(host));
+       const promises =  this.hosts.map(async (host) => await this.sendToHost(host));
 
        Promise.all(promises)
         .then(results => {
