@@ -12,13 +12,7 @@ export class MessageBroadcaster{
     }
 
 
-    public async  sendToHost(host: string): Promise<any> {
-
-        let payload = {
-            "event": "message_sent",
-            "from" : "taha",
-            "to":"joe doe"
-        };
+    public async  sendToHost(host: string,payload:Object): Promise<any> {
 
         await axios.post(
             host+this.path,
@@ -32,8 +26,8 @@ export class MessageBroadcaster{
             ).then().catch();
     }
 
-    public async sendAll(){
-       const promises =  this.hosts.map(async (host) => await this.sendToHost(host));
+    public async sendAll(payload:Object){
+       const promises =  this.hosts.map(async (host) => await this.sendToHost(host,payload));
 
        Promise.all(promises)
         .then(results => {
